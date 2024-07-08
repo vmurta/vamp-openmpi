@@ -34,6 +34,7 @@ namespace vamp::planning
             const collision::Environment<FloatVector<rake>> &environment,
             const RRTCSettings &settings) noexcept -> PlanningResult<dimension>
         {
+            //@TODO: start a timer here
             PlanningResult<dimension> result;
 
             NN<dimension> start_tree;
@@ -96,6 +97,21 @@ namespace vamp::planning
 
             while (iter++ < settings.max_iterations and free_index < settings.max_samples)
             {
+                //@TODO: check if anything global has an answer 
+                // experiment with frequency of checking for global solution (maybe only do every 10 iters? 100 iters? play around)
+                // THE OK APPROACH:
+                // irecv and isendv the global solution to all procs, have all procs return the global solution
+                // will probably need to split this up into a couple of calls to communicate solution size, so we can make sure the buffer
+                // for receiving the answer will be the right size
+                // THE GOOD APPROACH:
+                // only communicate the existence of a solution, not the actual solution itself. 
+                // have all non solution procs return -1 ( or somehow indicate failure, maybe try /catch?)
+                // have only the proc that found the solution return the solution
+                // this approach will need changes at a higher stack level (have to do make sure solve caller knows what to do with the processes returning no solution)
+                // /////////////////////////////////////////////////////////////////
+                // do the ok approach for now, since it's easier to implement
+                // for either approach, stop the timer / print whenever information is succussfully received 
+
                 float asize = tree_a->size();
                 float bsize = tree_b->size();
                 float ratio = std::abs(asize - bsize) / asize;
@@ -242,6 +258,14 @@ namespace vamp::planning
             result.iterations = iter;
             result.size.emplace_back(start_tree.size());
             result.size.emplace_back(goal_tree.size());
+            //@TODO: Communicate the global solution
+            // OK APPROACH
+            // send out the size of the solution to all procs (so they can prepare an appropriately sized buffer)
+            // send out the solution to all procs
+            // GOOD APPROACH
+            // just send out the existence of a solution to all procs (bool, int, whatever)
+
+            //@TODO: finish the timer here
             return result;
         }
     };
