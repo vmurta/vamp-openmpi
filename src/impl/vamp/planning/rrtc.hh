@@ -75,7 +75,15 @@ namespace vamp::planning
             bool tree_a_is_start = not settings.start_tree_first;
             auto *tree_a = (settings.start_tree_first) ? &goal_tree : &start_tree;
             auto *tree_b = (settings.start_tree_first) ? &start_tree : &goal_tree;
-
+            
+            //@TODO: make sure each process has a unique seed
+            // NOTE: don't actually do this until we have everything else working for the OK implementation
+            // it looks like by default, the seed is the same for all processes
+            // (technically I think rng_skip_iterations is not a seed, but for our purposes it is)
+            // To make sure that each process isn't just creating the exact same random tree, we want this
+            // rng_skip_iterations value to be non overlapping for each process. We need to figure out how to 
+            // prorgammatically set this value for each process. I believe it should be 
+            // rng_skip_iterations += process_id * max_iterations, but we may want to test this out to make sure
             RNG rng(settings.rng_skip_iterations);
             std::size_t iter = 0;
             std::size_t free_index = start_index + 1;
