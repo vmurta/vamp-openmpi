@@ -110,9 +110,11 @@ def main(robot: str = "panda"):
 
         metadata = {'index': index, 'problem': problem}
         if "scene" in filename:
-            scenes[problem].append(load_moveit_yaml_scene(data) | metadata)
+            merged_data = {**load_moveit_yaml_scene(data), **metadata}
+            scenes[problem].append(merged_data)
         elif "request" in filename:
-            requests[problem].append(load_moveit_yaml_request(data, joints) | metadata)
+            merged_data = {**load_moveit_yaml_request(data, joints), **metadata}
+            requests[problem].append(merged_data)
         else:
             raise RuntimeError(f"Invalid file {filename} in problem tarfile!")
 

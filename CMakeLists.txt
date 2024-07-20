@@ -15,6 +15,9 @@ if(VAMP_FORCE_CLANG)
   set(CMAKE_CXX_COMPILER ${CLANGPP} CACHE STRING "C++ compiler" FORCE)
 endif()
 
+find_program(MPIC "mpic++")
+set(CMAKE_CXX_COMPILER ${MPIC} CACHE STRING "C++ compiler" FORCE)
+
 if(VAMP_FORCE_COLORED_OUTPUT)
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     add_compile_options(-fdiagnostics-color=always)
