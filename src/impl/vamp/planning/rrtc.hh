@@ -12,6 +12,7 @@
 #include <vamp/utils.hh>
 #include <vamp/vector.hh>
 #include <iostream>
+#include <sstream>
 
 
 namespace vamp::planning
@@ -19,6 +20,16 @@ namespace vamp::planning
     template <typename Robot, typename RNG, std::size_t rake, std::size_t resolution>
     struct RRTC
     {
+        size_t m_size = 0;
+        size_t m_rank = 0;
+        alignas(FloatVectorAlignment) std::array<float, dimension> m_init_v;
+
+        RRTC() {
+            MPI_Comm_size(MPI_COMM_WORLD, &m_size);
+            MPI_Comm_rank(MPI_COMM_WORLD, &m_rank);
+            std::copy_n(RNG::primes.cbegin() + rank, dimension, m_init_v.begin()); // #only works when dimension + num_ranks < 32
+        }
+
         using Configuration = typename Robot::Configuration;
         static constexpr auto dimension = Robot::dimension;
 
@@ -38,14 +49,13 @@ namespace vamp::planning
             const RRTCSettings &settings) noexcept -> PlanningResult<dimension>
         {
             //@TODO: start a timer here
-            //fence
-            MPI_Barrier(MPI_COMM_WORLD);
-            int size = 0;
-            MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-            int rank = 0; 
-            MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+            MPI_Barrier(MPI_COMM_WORLD);
+
+
             MPI_Status status;
+            MPI_Request request;
+            std::stringstream ss;
 
             PlanningResult<dimension> result;
 
@@ -82,7 +92,6 @@ namespace vamp::planning
                     return result;
                 }
             }
-
             // trees
             bool tree_a_is_start = not settings.start_tree_first;
             auto *tree_a = (settings.start_tree_first) ? &goal_tree : &start_tree;
@@ -96,7 +105,7 @@ namespace vamp::planning
             // rng_skip_iterations value to be non overlapping for each process. We need to figure out how to 
             // prorgammatically set this value for each process. I believe it should be 
             // rng_skip_iterations += process_id * max_iterations, but we may want to test this out to make sure
-            RNG rng(settings.rng_skip_iterations + (rank * settings.max_iterations));
+            RNG rng(m_init_v, settings.rng_skip_iterations);
             std::size_t iter = 0;
             std::size_t free_index = start_index + 1;
 
@@ -116,7 +125,7 @@ namespace vamp::planning
             }
 
             int flag = 0;
-
+            bool found_solution = false;
             while (iter++ < settings.max_iterations and free_index < settings.max_samples)
             {
                 //@TODO: check if anything global has an answer 
@@ -313,18 +322,23 @@ namespace vamp::planning
 
             //@TODO: finish the timer here
             int i;
+            int data = 1;
+            // MPI_Bcast(&data, 1, MPI_INT, rank, MPI_COMM_WORLD);
+            // std::cout << "PROCESS " << rank << " FOUND SOLUTION IN " << result.nanoseconds << " NANOSECONDS AND " << result.iterations << " ITERATIONS " << std::endl;
 
+            // std::cout << "PROCESS " << rank << " FOUND SOLUTION IN " << result.nanoseconds << " NANOSECONDS AND " << result.iterations << " ITERATIONS " << std::endl;
             for (i = 0; i < size; i++) {
                 if (i != rank) {
                     int data = 1;
                     if (rank > 0 ) {
                         data = 3;
                     }
-                    std::cout << "PROCESS " << rank << " FOUND SOLUTION IN " << result.nanoseconds << " NANOSECONDS AND " << result.iterations << " ITERATIONS " << std::endl;
 
+                    // MPI_Isend(&data, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &request);
                     MPI_Send(&data, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
                 }
             }
+            // MPI_Wait(&request, &status);
             return result;
         }
     };

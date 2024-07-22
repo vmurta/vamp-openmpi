@@ -197,7 +197,7 @@ def main(
     #     f"Solved / Valid / Total # Problems: {valid_problems - failed_problems} / {valid_problems} / {total_problems}"
     #     )
     # print(f"Completed all problems in {df['total_time'].sum() / 1000:.3f} milliseconds")
-    # print(f"Total time including Python overhead: {(tock - tick) * 1000:.3f} milliseconds")
+    print(f"Total time including Python overhead: {(tock - tick) * 1000:.3f} milliseconds")
 
     MPI.Finalize()
 if __name__ == "__main__":
