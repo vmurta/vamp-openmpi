@@ -20,16 +20,6 @@ namespace vamp::planning
     template <typename Robot, typename RNG, std::size_t rake, std::size_t resolution>
     struct RRTC
     {
-        size_t m_size = 0;
-        size_t m_rank = 0;
-        alignas(FloatVectorAlignment) std::array<float, dimension> m_init_v;
-
-        RRTC() {
-            MPI_Comm_size(MPI_COMM_WORLD, &m_size);
-            MPI_Comm_rank(MPI_COMM_WORLD, &m_rank);
-            std::copy_n(RNG::primes.cbegin() + rank, dimension, m_init_v.begin()); // #only works when dimension + num_ranks < 32
-        }
-
         using Configuration = typename Robot::Configuration;
         static constexpr auto dimension = Robot::dimension;
 
@@ -49,7 +39,11 @@ namespace vamp::planning
             const RRTCSettings &settings) noexcept -> PlanningResult<dimension>
         {
             //@TODO: start a timer here
+            int size = 0;
+            MPI_Comm_size(MPI_COMM_WORLD, &size);
 
+            int rank = 0; 
+            MPI_Comm_rank(MPI_COMM_WORLD, &rank);
             MPI_Barrier(MPI_COMM_WORLD);
 
 
@@ -105,7 +99,15 @@ namespace vamp::planning
             // rng_skip_iterations value to be non overlapping for each process. We need to figure out how to 
             // prorgammatically set this value for each process. I believe it should be 
             // rng_skip_iterations += process_id * max_iterations, but we may want to test this out to make sure
-            RNG rng(m_init_v, settings.rng_skip_iterations);
+            // auto rng_skip_time = std::chrono::steady_clock::now();
+
+
+            alignas(FloatVectorAlignment) std::array<float, dimension> init_v;
+            std::copy_n(RNG::primes.cbegin() + rank, dimension, init_v.begin()); // #only works when dimension + num_ranks < 32
+
+            RNG rng(init_v, settings.rng_skip_iterations);
+            // std::cout << "Rank " << rank << " rng set in " << vamp::utils::get_elapsed_nanoseconds(rng_skip_time) << std::endl;
+
             std::size_t iter = 0;
             std::size_t free_index = start_index + 1;
 
@@ -125,6 +127,7 @@ namespace vamp::planning
             }
 
             int flag = 0;
+            
             bool found_solution = false;
             while (iter++ < settings.max_iterations and free_index < settings.max_samples)
             {
@@ -150,22 +153,29 @@ namespace vamp::planning
                     int tag;
                     //check to see if message has been recieved
                     MPI_Iprobe(MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &flag, &status);
-
+                    
                     if (flag) {
-                        int count;
-                        MPI_Get_count( &status, MPI_INT, &count );
-                        if (count != MPI_UNDEFINED) {
-                            int buffer;
-                            MPI_Recv(&buffer, count, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-                            //std::cout << "PROCESS " << rank << " RECIEVED: " << buffer << std::endl;
+                        // int count;
+                        // MPI_Get_count( &status, MPI_INT, &count );
+                        // if (count != MPI_UNDEFINED) {
+                            // int buffer;
+                            // std::stringstream ss; 
+                            // vamp::utils::get_elapsed_nanoseconds(start_time);
+
+                            // MPI_Recv(&buffer, count, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+                            // ss << "PROCESS " << rank << ", with start graph of size " << start_tree.size() 
+                            //     << " and goal graph of size " << goal_tree.size() << " exited early after " 
+                            //     << vamp::utils::get_elapsed_nanoseconds(start_time) << "ns" << std::endl;
                             //return null or unsolved here
+                            // std::cout << "PROCESS "
+                            // std::cout << ss.str();
                             result.path.clear();
                             return result;
-                        } else {
-                            std::cout << "Error at get_count" << std::endl;
-                        }
+                        // } else {
+                        //     std::cout << "Error at get_count" << std::endl;
+                        // }
                     }
-                //}
+                // }
                 //if you get a solution MPI_Send() to all processes (maybe using MPI_Comm_size ? ) and return (down below)
                 float asize = tree_a->size();
                 float bsize = tree_b->size();
