@@ -155,19 +155,19 @@ namespace vamp::planning
                     MPI_Iprobe(MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &flag, &status);
                     
                     if (flag) {
-                        // int count;
-                        // MPI_Get_count( &status, MPI_INT, &count );
+                        int count;
+                        //MPI_Get_count( &status, MPI_INT, &count );
                         // if (count != MPI_UNDEFINED) {
-                            // int buffer;
+                            int buffer;
                             // std::stringstream ss; 
                             // vamp::utils::get_elapsed_nanoseconds(start_time);
 
-                            // MPI_Recv(&buffer, count, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+                            MPI_Recv(&buffer, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
                             // ss << "PROCESS " << rank << ", with start graph of size " << start_tree.size() 
                             //     << " and goal graph of size " << goal_tree.size() << " exited early after " 
                             //     << vamp::utils::get_elapsed_nanoseconds(start_time) << "ns" << std::endl;
                             //return null or unsolved here
-                            // std::cout << "PROCESS "
+                            //std::cout << "PROCESS TOO SLOW HERE" <<  rank << std::endl;
                             // std::cout << ss.str();
                             result.path.clear();
                             return result;
@@ -344,7 +344,7 @@ namespace vamp::planning
                         data = 3;
                     }
 
-                    // MPI_Isend(&data, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &request);
+                    //MPI_Isend(&data, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &request);
                     MPI_Send(&data, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
                 }
             }
