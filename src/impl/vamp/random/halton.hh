@@ -52,9 +52,6 @@ namespace vamp::rng
         Halton(std::initializer_list<FloatT> v) noexcept : Halton(FloatVector<dim>::pack_and_pad(v))
         {
         }
-        FloatVector<dim> b;
-        FloatVector<dim> n = FloatVector<dim>::fill(0);
-        FloatVector<dim> d = FloatVector<dim>::fill(1);
 
         explicit Halton() : Halton(bases())
         {

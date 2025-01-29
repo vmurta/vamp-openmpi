@@ -8,6 +8,7 @@
 #include <vamp/planning/plan.hh>
 #include <vamp/planning/validate.hh>
 #include <vamp/planning/rrtc_settings.hh>
+#include <vamp/random/halton.hh>
 #include <vamp/random/rng.hh>
 #include <vamp/utils.hh>
 #include <vamp/vector.hh>
@@ -106,9 +107,9 @@ namespace vamp::planning
 
 
             alignas(FloatVectorAlignment) std::array<float, dimension> init_v;
-            std::copy_n(RNG::primes.cbegin() + rank, dimension, init_v.begin()); // #only works when dimension + num_ranks < 32
+            std::copy_n(vamp::rng::Halton<dimension>::primes.cbegin() + rank, dimension, init_v.begin()); // #only works when dimension + num_ranks < 32
 
-            RNG rng(init_v, settings.rng_skip_iterations);
+            // RNG rng(init_v, settings.rng_skip_iterations);
             // std::cout << "Rank " << rank << " rng set in " << vamp::utils::get_elapsed_nanoseconds(rng_skip_time) << std::endl;
 
             std::size_t iter = 0;

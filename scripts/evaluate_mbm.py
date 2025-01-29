@@ -7,7 +7,7 @@ import pandas as pd
 from typing import Union, List
 
 from fire import Fire
-import vamp
+import vamp as vamp
 from vamp import pointcloud as vpc
 import mpi4py.MPI as MPI
 
