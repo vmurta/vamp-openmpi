@@ -1,10 +1,10 @@
 #pragma once
 
-#include <array>
 #include <cmath>
 #include <cstddef>
 #include <limits>
 #include <vector>
+#include <unordered_set>
 
 #include <vamp/constants.hh>
 #include <vamp/utils.hh>
@@ -24,8 +24,8 @@ namespace vamp::planning
 
     struct ConstantNeighborParams
     {
-        [[nodiscard]] inline auto _max_neighbors_impl(std::size_t /*num_states*/) const noexcept
-            -> std::size_t
+        [[nodiscard]] inline auto
+        _max_neighbors_impl(std::size_t /*num_states*/) const noexcept -> std::size_t
         {
             return k;
         }
@@ -46,8 +46,8 @@ namespace vamp::planning
         {
         }
 
-        [[nodiscard]] inline constexpr auto max_neighbors(std::size_t num_states) const noexcept
-            -> std::size_t
+        [[nodiscard]] inline constexpr auto
+        max_neighbors(std::size_t num_states) const noexcept -> std::size_t
         {
             const auto prmstar_constant =
                 vamp::utils::constants::e + (vamp::utils::constants::e / dimension());
@@ -76,6 +76,34 @@ namespace vamp::planning
         double gamma_scale = 2.0;
     };
 
+    struct FCITStarNeighborParams
+    {
+        explicit FCITStarNeighborParams(std::size_t dim, double space_measure) noexcept
+          : dim(dim), space_measure(space_measure)
+        {
+        }
+
+        [[nodiscard]] inline constexpr auto
+        max_neighbors(std::size_t num_states) const noexcept -> std::size_t
+        {
+            return std::numeric_limits<size_t>::max();
+        }
+
+        [[nodiscard]] inline auto neighbor_radius(std::size_t num_states) const noexcept -> float
+        {
+            return std::numeric_limits<float>::infinity();
+        }
+
+        [[nodiscard]] inline constexpr auto dimension() const noexcept -> double
+        {
+            return static_cast<double>(dim);
+        }
+
+        std::size_t dim;
+        double space_measure;
+        double gamma_scale = 2.0;
+    };
+
     struct FMTStarNeighborParams
     {
         explicit FMTStarNeighborParams(std::size_t dim, double space_measure)
@@ -83,8 +111,8 @@ namespace vamp::planning
         {
         }
 
-        [[nodiscard]] inline constexpr auto max_neighbors(std::size_t num_states) const noexcept
-            -> std::size_t
+        [[nodiscard]] inline constexpr auto
+        max_neighbors(std::size_t num_states) const noexcept -> std::size_t
         {
             // NOTE: Adapted from OMPL
             const auto fmtstar_constant =
@@ -138,7 +166,8 @@ namespace vamp::planning
 
         std::size_t max_iterations = 100000;
         std::size_t max_samples = 100000;
-        std::size_t rng_skip_iterations = 0;
+        std::size_t batch_size = 1000;
+        bool optimize = false;
         NeighborParams neighbor_params;
     };
 
