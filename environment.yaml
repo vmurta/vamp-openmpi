@@ -11,3 +11,4 @@ dependencies:
   - lld
   - llvm-tools
   - libstdcxx-ng
+  - openmp

@@ -15,15 +15,12 @@ if(VAMP_FORCE_CLANG)
   set(CMAKE_CXX_COMPILER ${CLANGPP} CACHE STRING "C++ compiler" FORCE)
 endif()
 
-find_program(MPIC "mpic++")
-set(CMAKE_CXX_COMPILER ${MPIC} CACHE STRING "C++ compiler" FORCE)
-
 if(VAMP_FORCE_COLORED_OUTPUT)
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     add_compile_options(-fdiagnostics-color=always)
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     add_compile_options(-fcolor-diagnostics)
-  endif()
+  endif() 
 endif()
 
 project(
@@ -83,10 +80,15 @@ target_include_directories(_core_ext
     SYSTEM PRIVATE
     ${VAMP_EXT_INCLUDES}
 )
+find_package(OpenMP REQUIRED)
 
+target_compile_options(_core_ext PRIVATE ${OpenMP_CXX_FLAGS})
+target_link_options(_core_ext PRIVATE ${OpenMP_CXX_FLAGS})
+message (STATUS "OpenMP_CXX_FLAGS: ${OpenMP_CXX_FLAGS}")
 target_link_libraries(_core_ext
     PRIVATE
     Eigen3::Eigen
+    OpenMP::OpenMP_CXX
 )
 
 if($ENV{GITHUB_ACTIONS})
@@ -133,14 +135,14 @@ foreach(robot_name IN LISTS VAMP_ROBOT_MODULES)
   )
 endforeach()
 
-if(VAMP_BUILD_OMPL_DEMO)
-  find_package(ompl QUIET PATHS ${VAMP_OMPL_PATH})
+# if(VAMP_BUILD_OMPL_DEMO)
+#   find_package(ompl QUIET PATHS ${VAMP_OMPL_PATH})
 
-  if(ompl_FOUND)
-    add_executable(vamp_ompl_integration scripts/cpp/ompl_integration.cc)
-    target_link_libraries(vamp_ompl_integration PRIVATE ompl::ompl Eigen3::Eigen)
-    target_include_directories(vamp_ompl_integration SYSTEM PRIVATE ${VAMP_EXT_INCLUDES})
-  else()
-    message(WARNING "OMPL not found! Cannot build OMPL demo.")
-  endif()
-endif()
+#   if(ompl_FOUND)
+#     add_executable(vamp_ompl_integration scripts/cpp/ompl_integration.cc)
+#     target_link_libraries(vamp_ompl_integration PRIVATE ompl::ompl Eigen3::Eigen)
+#     target_include_directories(vamp_ompl_integration SYSTEM PRIVATE ${VAMP_EXT_INCLUDES})
+#   else()
+#     message(WARNING "OMPL not found! Cannot build OMPL demo.")
+#   endif()
+# endif()

@@ -19,6 +19,8 @@ def main(
     problem: Union[str, List[str]] = [],   # Problem name or list of problems to evaluate
     trials: int = 1,                       # Number of trials to evaluate each instance
     sampler: str = "halton",               # Sampler to use.
+    #TODO: here we want to set something like "custom", so as to wait until parallelization to worry 
+    # before creating different samplers
     skip_rng_iterations: int = 0,          # Skip a number of RNG iterations
     print_failures: bool = False,          # Print out failures and invalid problems
     pointcloud: bool = False,              # Use pointcloud rather than primitive geometry
