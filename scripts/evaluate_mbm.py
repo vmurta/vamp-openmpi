@@ -9,7 +9,6 @@ from typing import Union, List
 from fire import Fire
 import vamp as vamp
 from vamp import pointcloud as vpc
-import mpi4py.MPI as MPI
 
 
 def main(
@@ -140,8 +139,105 @@ def main(
         df["total_build_and_plan_time"] = df["total_build_and_plan_time"].dt.microseconds / 1e3
 
     df["total_time"] = df["total_time"].dt.microseconds
+    df["overhead_time"] = (tock - tick) * 1000
+    df["total_problems"] = total_problems
+    df["valid_problems"] = valid_problems
+    df["failed_problems"] = failed_problems
 
     # # Get summary statistics
+    # time_stats = df[[
+    #     "planning_time",
+    #     "simplification_time",
+    #     "total_time",
+    #     "planning_iterations",
+    #     "avg_time_per_iteration",
+    #     ]].describe(percentiles = [0.25, 0.5, 0.75, 0.95])
+    # time_stats.drop(index = ["count"], inplace = True)
+
+    # cost_stats = df[[
+    #     "initial_path_cost",
+    #     "simplified_path_cost",
+    #     ]].describe(percentiles = [0.25, 0.5, 0.75, 0.95])
+    # cost_stats.drop(index = ["count"], inplace = True)
+
+    # if pointcloud:
+    #     pointcloud_stats = df[[
+    #         "filter_time",
+    #         "capt_build_time",
+    #         "total_build_and_plan_time",
+    #         ]].describe(percentiles = [0.25, 0.5, 0.75, 0.95])
+    #     pointcloud_stats.drop(index = ["count"], inplace = True)
+
+    # print()
+    # print(
+    #     tabulate(
+    #         time_stats,
+    #         headers = [
+    #             'Planning Time (μs)',
+    #             'Simplification Time (μs)',
+    #             'Total Time (μs)',
+    #             'Planning Iters.',
+    #             'Time per Iter. (μs)',
+    #             ],
+    #         tablefmt = 'github'
+    #         )
+    #     )
+
+    # print(
+    #     tabulate(
+    #         cost_stats, headers = [
+    #             ' Initial Cost (L2)',
+    #             '    Simplified Cost (L2)',
+    #             ], tablefmt = 'github'
+    #         )
+    #     )
+
+    if pointcloud:
+        print(
+            tabulate(
+                pointcloud_stats,
+                headers = [
+                    '  Filter Time (ms)',
+                    '    CAPT Build Time (ms)',
+                    'Total Time (ms)',
+                    ],
+                tablefmt = 'github'
+                )
+            )
+
+    # print(
+    #     f"Solved / Valid / Total # Problems: {valid_problems - failed_problems} / {valid_problems} / {total_problems}"
+    #     )
+    # print(f"Completed all problems in {df['total_time'].sum() / 1000:.3f} milliseconds")
+    # print(f"Total time including Python overhead: {(tock - tick) * 1000:.3f} milliseconds")
+    return df
+
+# if __name__ == "__main__":
+#     Fire(main)
+
+bot_dataframes = {bot: [] for bot in ["panda", "ur5", "baxter", "fetch"]}
+
+for i in range(3):
+    for bot in ["panda", "ur5", "baxter", "fetch"]:
+        bot_dataframes[bot].append(main(robot = bot))
+
+average_dataframes = {}
+correctness_stats = {bot: {} for bot in ["panda", "ur5", "baxter", "fetch"]}
+
+print("done running, now calculating results")
+for bot, dfs in bot_dataframes.items():
+    combined_df = pd.concat(dfs)
+    average_df = combined_df.groupby(combined_df.index).mean()
+    average_dataframes[bot] = average_df
+    stat_names = ["total_problems", "valid_problems", "failed_problems"]
+    correctness_stats[bot] = { name: 0 for name in stat_names }
+    for df in dfs:
+        for name in stat_names:
+            correctness_stats[bot][name] += df[name][0]
+
+print("done calculating results, now printing")
+# print("average_dataframes is ", average_dataframes)
+for bot, df in average_dataframes.items():
     time_stats = df[[
         "planning_time",
         "simplification_time",
@@ -156,14 +252,6 @@ def main(
         "simplified_path_cost",
         ]].describe(percentiles = [0.25, 0.5, 0.75, 0.95])
     cost_stats.drop(index = ["count"], inplace = True)
-
-    if pointcloud:
-        pointcloud_stats = df[[
-            "filter_time",
-            "capt_build_time",
-            "total_build_and_plan_time",
-            ]].describe(percentiles = [0.25, 0.5, 0.75, 0.95])
-        pointcloud_stats.drop(index = ["count"], inplace = True)
 
     print()
     print(
@@ -188,26 +276,8 @@ def main(
                 ], tablefmt = 'github'
             )
         )
-
-    if pointcloud:
-        print(
-            tabulate(
-                pointcloud_stats,
-                headers = [
-                    '  Filter Time (ms)',
-                    '    CAPT Build Time (ms)',
-                    'Total Time (ms)',
-                    ],
-                tablefmt = 'github'
-                )
-            )
-
-    print(
-        f"Solved / Valid / Total # Problems: {valid_problems - failed_problems} / {valid_problems} / {total_problems}"
-        )
-    print(f"Completed all problems in {df['total_time'].sum() / 1000:.3f} milliseconds")
-    print(f"Total time including Python overhead: {(tock - tick) * 1000:.3f} milliseconds")
-
-    MPI.Finalize()
-if __name__ == "__main__":
-    Fire(main)
+    print()
+    print(f"{bot} Average Solved / Valid / Total # Problems: {df['valid_problems'][0] - df['failed_problems'][0]} / {df['valid_problems'][0]} / {df['total_problems'][0]}")
+    print(f"{bot} Total   Solved / Valid / Total # Problems: {correctness_stats[bot]['valid_problems'] - correctness_stats[bot]['failed_problems']} / {correctness_stats[bot]['valid_problems']} / {correctness_stats[bot]['total_problems']}")
+    print(f"{bot} Completed all problems in {df['total_time'].sum() / 1000:.3f} milliseconds")
+    print(f"{bot} Total time including Python overhead: {df['overhead_time'][0]:.3f} milliseconds")
