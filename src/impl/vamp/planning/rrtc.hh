@@ -14,6 +14,7 @@
 #include <iostream>
 #include <omp.h>
 
+#include <sstream>
 namespace vamp::planning
 {
     template <typename Robot, std::size_t rake, std::size_t resolution>
@@ -62,34 +63,19 @@ namespace vamp::planning
                     return result;
                 }
             }
-            // trees
-            
-            //@TODO: make sure each process has a unique seed
-            // NOTE: don't actually do this until we have everything else working for the OK implementation
-            // it looks like by default, the seed is the same for all processes
-            // (technically I think rng_skip_iterations is not a seed, but for our purposes it is)
-            // To make sure that each process isn't just creating the exact same random tree, we want this
-            // rng_skip_iterations value to be non overlapping for each process. We need to figure out how to 
-            // prorgammatically set this value for each process. I believe it should be 
-            // rng_skip_iterations += process_id * max_iterations, but we may want to test this out to make sure
-            // auto rng_skip_time = std::chrono::steady_clock::now();
 
-
-
-            // std::cout << "Rank " << rank << " rng set in " << vamp::utils::get_elapsed_nanoseconds(rng_skip_time) << std::endl;
-
-            std::size_t free_index = start_index + 1;
 
 
             bool found_solution = false;
-            std::size_t iter = 0;
 
-
+            // std::cout << "Max iterations: " << settings.max_iterations << std::endl;
             // std::cout << "Starting parallel region" << std::endl;
-            #pragma omp parallel private(iter, free_index)
+            #pragma omp parallel 
             {
+                std::size_t iter = 0;
+                std::size_t free_index = start_index + 1;
+
                 //#TODO: make this as memory efficient as possible
-                // std::cout << "Thread " << omp_get_thread_num() << " started" << std::endl;
                 alignas(FloatVectorAlignment) std::array<float, dimension> init_v;
                 std::copy_n(vamp::rng::Halton<dimension>::primes.cbegin() + omp_get_thread_num(), dimension, init_v.begin()); // #only works when dimension + num_ranks < 32
                 vamp::rng::Halton<dimension> rng(init_v);
@@ -100,16 +86,19 @@ namespace vamp::planning
                 NN<dimension> start_tree;
                 NN<dimension> goal_tree;
 
+                //buffer of for all of the samples
                 auto buffer = std::shared_ptr<float>(
                     vamp::utils::vector_alloc<float, FloatVectorAlignment, FloatVectorWidth>(
                         settings.max_samples * Configuration::num_scalars_rounded),
                         &free);
 
+                // looks like this is a lambda function that returns a pointer to the buffer at the given index
                 const auto buffer_index = [&buffer](std::size_t index) -> float *
                     { return buffer.get() + index * Configuration::num_scalars_rounded; };
 
 
                 // add start to tree
+                //add start to buffer
                 start.to_array(buffer_index(start_index));
                 start_tree.insert(NNNode<dimension>{start_index, {buffer_index(start_index)}});
                 parents[start_index] = start_index;
@@ -128,34 +117,23 @@ namespace vamp::planning
                 auto *tree_b = (settings.start_tree_first) ? &start_tree : &goal_tree;
                 bool tree_a_is_start = not settings.start_tree_first;
 
+                // std::stringstream ss1;
+                // ss1 << "Thread " << omp_get_thread_num() << " about to begin" << std::endl;
+                // std::cout << ss1.str();
                 while (iter++ < settings.max_iterations and free_index < settings.max_samples)
                 {
-                    // std::cout << "Thread " << omp_get_thread_num() << " iter " << iter << std::endl;
-                    //@TODO: check if anything global has an answer 
-                    // experiment with frequency of checking for global solution (maybe only do every 10 iters? 100 iters? play around)
-                    // THE OK APPROACH:
-                    // irecv and isendv the global solution to all procs, have all procs return the global solution
-                    // will probably need to split this up into a couple of calls to communicate solution size, so we can make sure the buffer
-                    // for receiving the answer will be the right size
-                    // THE GOOD APPROACH:
-                    // only communicate the existence of a solution, not the actual solution itself. 
-                    // have all non solution procs return -1 ( or somehow indicate failure, maybe try /catch?)
-                    // have only the proc that found the solution return the solution
-                    // this approach will need changes at a higher stack level (have to do make sure solve caller knows what to do with the processes returning no solution)
-                    // /////////////////////////////////////////////////////////////////
-                    // do the ok approach for now, since it's easier to implement
-                    // for either approach, stop the timer / print whenever information is succussfully received 
-
-                    //otherwise, continue as normal
-                    //if (iter % 10 == 0) {
-                        if (found_solution) {
-                            break;
-                        }
+                    // if (iter % 100000 == 0) {
+                    //     std::cout << "Thread " << omp_get_thread_num() << " iter " << iter << std::endl;
                     // }
+
+                    if (found_solution) {
+                        break;
+                    }
+
+                    // calculate stats to see if a swap is needed
                     float asize = tree_a->size();
                     float bsize = tree_b->size();
                     float ratio = std::abs(asize - bsize) / asize;
-                    // std::cout << "Thread " << omp_get_thread_num() << " ratio " << ratio << std::endl;
                     if ((not settings.balance) or ratio < settings.tree_ratio)
                     {
                         std::swap(tree_a, tree_b);
@@ -164,19 +142,22 @@ namespace vamp::planning
 
                     auto temp = rng.next();
                     Robot::scale_configuration(temp);
-                    // std::cout << "Thread " << omp_get_thread_num() << " got random configuration" << std::endl;
+
                     typename Robot::ConfigurationBuffer temp_array;
                     temp.to_array(temp_array.data());
 
+                    //find nearest node in tree a to randomly sampled node (i think?)
                     const auto nearest = tree_a->nearest(NNFloatArray<dimension>{temp_array.data()});
                     if (not nearest)
                     {
+                        // no node close enough?
                         continue;
                     }
 
                     const auto &[nearest_node, nearest_distance] = *nearest;
                     const auto nearest_radius = radii[nearest_node.index];
 
+                    // i don't know what this means
                     if (settings.dynamic_domain and nearest_radius < nearest_distance)
                     {
                         continue;
@@ -187,9 +168,11 @@ namespace vamp::planning
                     auto nearest_vector = temp - nearest_configuration;
 
                     bool reach = nearest_distance < settings.range;
+
+                    // if the nearest node is within range, just use the vector to the nearest node
+                    // else, use the vector to the nearest node scaled by the range
                     auto extension_vector =
                         (reach) ? nearest_vector : nearest_vector * (settings.range / nearest_distance);
-                    // std::cout << "Thread " << omp_get_thread_num() << " got extension vector" << std::endl;
                     if (validate_vector<Robot, rake, resolution>(
                             nearest_configuration,
                             extension_vector,
@@ -250,18 +233,25 @@ namespace vamp::planning
                         if (i_extension == n_extensions)  // connected
                         {
                             bool somebody_found_solution = false;
+                            std::stringstream ss;
+                            ss << "Thread " << omp_get_thread_num() << " found solution" << std::endl;
+                            std::cout << ss.str();
                             #pragma omp atomic capture
                             {
                                 somebody_found_solution = found_solution;
                                 found_solution = true;
                             }
 
-                            if (somebody_found_solution) break;
-                            std::cout << "Thread " << omp_get_thread_num() << " found solution" << std::endl;
-                            
+                            if (somebody_found_solution) {
+                                ss << "Thread " << omp_get_thread_num() << " found solution, but another thread already found it" << std::endl;
+                                std::cout << ss.str();
+                                break;
+                            }
+                            ss  << "Thread " << omp_get_thread_num() << " found solution for real, firsties" << std::endl;
+                            std::cout << ss.str();
                             
                             result.cost = other_nearest_distance;
-                                                        auto current = free_index - 1;
+                            auto current = free_index - 1;
                             result.path.emplace_back(buffer_index(current));
                             while (parents[current] != current)
                             {
@@ -288,13 +278,15 @@ namespace vamp::planning
                             {
                                 std::reverse(result.path.begin(), result.path.end());
                             }
-
+                            // std::cout << "Thread " << omp_get_thread_num() << " found solution" << std::endl;
+                            result.nanoseconds = vamp::utils::get_elapsed_nanoseconds(start_time);
                             result.size.emplace_back(start_tree.size());
                             result.size.emplace_back(goal_tree.size());
                             result.iterations = iter;
+                            break;
                         }
-                        break;
                     }
+                    // vector wasn't trivially valid
                     else if (settings.dynamic_domain)
                     {
                         if (nearest_radius == std::numeric_limits<float>::max())
@@ -308,8 +300,13 @@ namespace vamp::planning
                         }
                     }
                 }
+            // std::stringstream ss;
+            // ss << "Thread " << omp_get_thread_num() << " finished" << std::endl;
+            // std::cout << ss.str();
+            // #pragma omp barrier
             } // end of parallel region
-            result.nanoseconds = vamp::utils::get_elapsed_nanoseconds(start_time);
+
+            // std::cout << std::endl << std::endl << std::endl << std::endl << std::flush;
             return result;
         }
     };
