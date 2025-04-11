@@ -1,0 +1,16 @@
+| max  |              85722   |                   3619     |           88121   |          712692   |              25.0243  |
+|      |    Initial Cost (L2) |       Simplified Cost (L2) |
+|------|----------------------|----------------------------|
+| mean |             15.2767  |                    7.73093 |
+| std  |              4.99934 |                    1.8277  |
+| min  |              7.29128 |                    4.59435 |
+| 25%  |             11.3815  |                    6.46497 |
+| 50%  |             14.3809  |                    7.29428 |
+| 75%  |             17.8009  |                    8.47732 |
+| 95%  |             25.9143  |                   11.2392  |
+| max  |             32.7828  |                   16.1589  |
+
+baxter Average Solved / Valid / Total # Problems: 29.0 / 1470.0 / 1800.0
+baxter Total   Solved / Valid / Total # Problems: 29 / 1470 / 1800
+baxter Completed all problems in 4806.782 milliseconds
+baxter Total time including Python overhead: 39575.900 milliseconds

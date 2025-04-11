@@ -17,6 +17,8 @@
 #include <vamp/planning/prm.hh>
 #include <vamp/planning/fcit.hh>
 #include <vamp/planning/rrtc.hh>
+#include <vamp/planning/por_rrtc.hh>
+#include <vamp/planning/por_rrtc_settings.hh>
 #include <vamp/vector.hh>
 
 #include <nanobind/nanobind.h>
@@ -26,6 +28,7 @@
 #include <nanobind/stl/vector.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/ndarray.h>
+
 
 namespace vamp::binding
 {
@@ -104,12 +107,20 @@ namespace vamp::binding
 
         using PRM = vamp::planning::PRM<Robot, rake, Robot::resolution>;
         using RRTC = vamp::planning::RRTC<Robot, rake, Robot::resolution>;
+        using POR_RRTC = vamp::planning::POR_RRTC<Robot, rake, Robot::resolution>;
+        using Finish_Flag = vamp::planning::Finish_Flag;
         using FCIT = vamp::planning::FCIT<Robot, rake, Robot::resolution>;
 
         inline static auto halton() -> typename RNG::Ptr
         {
             return std::make_shared<Halton>();
         }
+
+        inline static auto halton_offset(size_t offset) -> typename RNG::Ptr
+        {
+            return std::make_shared<Halton>(offset);
+        }
+
 
 #if defined(__x86_64__)
         inline static auto xorshift() -> typename RNG::Ptr
@@ -202,6 +213,38 @@ namespace vamp::binding
 
             const Configuration start_v(start);
             return RRTC::solve(start_v, goals_v, EnvironmentVector(environment), settings, rng);
+        }
+
+        inline static auto por_rrtc_single(
+            const ConfigurationArray &start,
+            const ConfigurationArray &goal,
+            const EnvironmentInput &environment,
+            const vamp::planning::POR_RRTCSettings &settings,
+            typename RNG::Ptr rng,
+            Finish_Flag f_finish) -> PlanningResult
+        {
+            return POR_RRTC::solve(
+                Configuration(start), Configuration(goal), EnvironmentVector(environment), settings, rng, f_finish);
+        }
+
+        inline static auto por_rrtc(
+            const ConfigurationArray &start,
+            const std::vector<ConfigurationArray> &goals,
+            const EnvironmentInput &environment,
+            const vamp::planning::POR_RRTCSettings &settings,
+            typename RNG::Ptr rng,
+            Finish_Flag f_finish) -> PlanningResult
+        {
+            std::vector<Configuration> goals_v;
+            goals_v.reserve(goals.size());
+
+            for (const auto &goal : goals)
+            {
+                goals_v.emplace_back(goal);
+            }
+
+            const Configuration start_v(start);
+            return POR_RRTC::solve(start_v, goals_v, EnvironmentVector(environment), settings, rng, f_finish);
         }
 
         inline static auto prm_single(
@@ -316,7 +359,6 @@ namespace vamp::binding
 
         using RH = Helper<Robot>;
         auto submodule = pymodule.def_submodule(Robot::name, "Robot-specific submodule");
-
         nb::class_<typename RH::RNG::Ptr>(submodule, "RNG", "RNG for robot configurations.")
             .def(
                 "reset",
@@ -469,7 +511,7 @@ namespace vamp::binding
                         path_arr, {p.size(), Robot::dimension}, arr_owner);
                 },
                 "Convert this path to a numpy matrix.");
-
+        
         nb::class_<typename RH::PlanningResult>(submodule, "PlanningResult", "Result of a planning query.")
             .def(nb::init<>(), "Empty constructor.")
             .def_prop_ro(
@@ -511,6 +553,7 @@ namespace vamp::binding
                 "iterations", &RH::Roadmap::iterations, "Number of iterations taken to construct roadmap.");
 
         submodule.def("halton", RH::halton, "Creates a new Halton sampler.");
+        submodule.def("halton_offset", RH::halton_offset, "offset"_a, "Creates a new Halton sampler initialized with an offset, useful for experimenting with different sequences.");
 
 #if defined(__x86_64__)
         submodule.def("xorshift", RH::xorshift, "Creates a new XORShift sampler.");
@@ -539,6 +582,27 @@ namespace vamp::binding
             "rng"_a,
             "Solve the motion planning problem with RRTConnect.");
 
+        submodule.def(
+            "por_rrtc",
+            RH::por_rrtc_single,
+            "start"_a,
+            "goal"_a,
+            "environment"_a,
+            "settings"_a,
+            "rng"_a,
+            "f_finish"_a,
+            "Solve the motion planning problem with Parallel-OR RRTConnect.");
+
+        submodule.def(
+            "por_rrtc",
+            RH::por_rrtc,
+            "start"_a,
+            "goal"_a,
+            "environment"_a,
+            "settings"_a,
+            "rng"_a,
+            "f_finish"_a,
+            "Solve the motion planning problem with Parallel-OR RRTConnect.");
         submodule.def(
             "prm",
             RH::prm_single,

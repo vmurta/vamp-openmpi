@@ -57,6 +57,11 @@ namespace vamp::rng
         {
         }
 
+        explicit Halton(size_t base_offset) noexcept 
+            : Halton(FloatVector<dim>::pack_and_pad(std::vector<float>(primes.cbegin() + base_offset, primes.cbegin() + base_offset + dim)))
+        {
+        }
+
         inline constexpr auto bases() noexcept -> FloatVector<dim>
         {
             alignas(FloatVectorAlignment) std::array<float, dim> a;

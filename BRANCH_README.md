@@ -1,0 +1,2 @@
+This version of vamp represents an attempt to parallelize it with thread-level parallelization at the python level. It appears that the overhead for openMP to create new threads is too much for a single problem, so we're tackling it this way instead.
+I'm going to try to do this by seeing if I can have a shared flag that's passed to each thread from the python level, that will write as true whenever a solution is found.

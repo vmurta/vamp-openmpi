@@ -15,6 +15,8 @@ __all__ = [
     "Cuboid",
     "Cylinder",
     "RRTCSettings",
+    "FinishFlag"
+    "POR_RRTCSettings"
     "PRMSettings",
     "PRMNeighborParams",
     "FCITSettings",
@@ -39,6 +41,8 @@ from ._core import Environment as Environment
 from ._core import PRMNeighborParams as PRMNeighborParams
 from ._core import PRMSettings as PRMSettings
 from ._core import RRTCSettings as RRTCSettings
+from ._core import POR_RRTCSettings as POR_RRTCSettings
+from ._core import FinishFlag as FinishFlag
 from ._core import FCITNeighborParams as FCITNeighborParams
 from ._core import FCITSettings as FCITSettings
 from ._core import SimplifyRoutine as SimplifyRoutine
@@ -91,6 +95,9 @@ def configure_robot_and_planner_with_kwargs(robot_name: str, planner_name: str, 
         plan_settings = FCITSettings(
             FCITNeighborParams(robot_module.dimension(), robot_module.space_measure())
             )
+    if planner_name == "por_rrtc":
+        plan_settings = POR_RRTCSettings()
+        plan_settings.range = ROBOT_RRT_RANGES[robot_name]
     else:
         raise NotImplementedError(f"Automatic setup for planner {planner_name} is not implemented yet!")
 

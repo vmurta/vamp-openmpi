@@ -1,4 +1,5 @@
 #include <vamp/bindings/init.hh>
+#include <memory>
 
 namespace vb = vamp::binding;
 

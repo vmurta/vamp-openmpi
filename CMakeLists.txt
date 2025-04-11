@@ -72,7 +72,7 @@ list(APPEND VAMP_EXT_INCLUDES
 
 nanobind_add_module(_core_ext
     NB_STATIC
-    STABLE_ABI
+    # STABLE_ABI # Uncomment this line to enable stable ABI, incompatible with no-GIL python
     NOMINSIZE
     ${VAMP_EXT_SOURCES}
 )

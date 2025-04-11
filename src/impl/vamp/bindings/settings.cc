@@ -1,5 +1,6 @@
 #include <vamp/planning/roadmap.hh>
 #include <vamp/planning/rrtc_settings.hh>
+#include <vamp/planning/por_rrtc_settings.hh>
 #include <vamp/planning/simplify_settings.hh>
 #include <vamp/bindings/init.hh>
 
@@ -7,9 +8,16 @@
 
 namespace nb = nanobind;
 namespace vp = vamp::planning;
+using namespace nb::literals;
 
 void vamp::binding::init_settings(nanobind::module_ &pymodule)
 {
+    nb::class_<vp::Finish_Flag>(pymodule, "FinishFlag", "Flag to signal the end of a POR-RRTC search.")
+            .def(nb::init<>(), "Empty constructor.")
+            .def("set", &vp::Finish_Flag::set, "thread_id"_a, "Set the thread ID of the thread that solved the problem.")
+            .def("reset", &vp::Finish_Flag::reset, "Set the thread ID to -1, denoting an unsolved problem.")
+            .def("get", &vp::Finish_Flag::get, "Get the ID of the thread that solved the problem.");
+
     nb::class_<vp::RRTCSettings>(pymodule, "RRTCSettings")
         .def(nb::init<>())
         .def_rw("range", &vp::RRTCSettings::range)
@@ -22,6 +30,23 @@ void vamp::binding::init_settings(nanobind::module_ &pymodule)
         .def_rw("max_iterations", &vp::RRTCSettings::max_iterations)
         .def_rw("max_samples", &vp::RRTCSettings::max_samples)
         .def_rw("start_tree_first", &vp::RRTCSettings::start_tree_first);
+
+    nb::class_<vp::POR_RRTCSettings>(pymodule, "POR_RRTCSettings")
+        .def(nb::init<>())
+        .def_rw("range", &vp::POR_RRTCSettings::range)
+        .def_rw("dynamic_domain", &vp::POR_RRTCSettings::dynamic_domain)
+        .def_rw("radius", &vp::POR_RRTCSettings::radius)
+        .def_rw("alpha", &vp::POR_RRTCSettings::alpha)
+        .def_rw("min_radius", &vp::POR_RRTCSettings::min_radius)
+        .def_rw("balance", &vp::POR_RRTCSettings::balance)
+        .def_rw("tree_ratio", &vp::POR_RRTCSettings::tree_ratio)
+        .def_rw("max_iterations", &vp::POR_RRTCSettings::max_iterations)
+        .def_rw("max_samples", &vp::POR_RRTCSettings::max_samples)
+        .def_rw("start_tree_first", &vp::POR_RRTCSettings::start_tree_first)
+        .def_rw("thread_id", &vp::POR_RRTCSettings::thread_id)
+        .def("copy", [](const vp::POR_RRTCSettings &self) {
+            return vp::POR_RRTCSettings(self);
+        });
 
     // TODO: Redesign a neater form of RoadmapSettings/NeighborParams
     // TODO: Expose the other NeighborParams types
